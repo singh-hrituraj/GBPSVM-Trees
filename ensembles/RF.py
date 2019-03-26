@@ -25,7 +25,7 @@ class RF:
 			if replace:
 				TDindx = np.round((n-1)*np.random.rand(n,1))
 			else:
-				TDindx = np.arange(n-1)
+				TDindx = np.arange(n)
 
 			Random_Forest =  CART()
 			Random_Forest.train()
