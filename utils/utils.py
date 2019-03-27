@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import eig
 
 
 def gini_from_distribution(distribution):
@@ -115,3 +116,19 @@ def gini_boundary(X, Y, minleaf = 1):
             impurity  = post_gini
 
     return cut_value, impurity
+
+
+def generalized_eigen_soln(G, H):
+    """
+    Solves the generalized eigen value problem for the matrix pair (G, H).
+    Returns:
+    eig_vals : list of eigen values in increasing order.
+    eig_vectors: list of eigen vectors corresponding to the sorted list of eigen values.
+    """
+    eig_vals, eig_vectors = eig(G, H)
+
+    sorted_idx = np.argsort(eig_vals)
+
+    return eig_vals[sorted_idx], eig_vectors[sorted_idx]
+
+
