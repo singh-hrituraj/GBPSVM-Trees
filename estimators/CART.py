@@ -1,4 +1,5 @@
 import numpy as np 
+import numpy.linalg.matrix_rank as rank
 from scipy import stats
 from utils.utils import *
 
@@ -41,7 +42,7 @@ class CART:
 
 
 	def axis_parallel_cut(self, X, Y, variables):
-		print(X)
+		
 
 		num_features            = X.shape[1]
 		pre_gini                = gini_from_distribution(Y)
@@ -72,6 +73,94 @@ class CART:
 		return bestCutVar, bestCutValue
 
 
+	def hyperplane_psvm(self, X, Y, variables, sss_mode='Tikhonov',delta=None):
+		labels    = np.unique(Y)
+ 
+		if len(labels)==1:
+			splitFlag  = -1
+			Plane      = None
+			return splitFlag, Plane
+
+		if len(labels)>=3:
+			group1, group2 = group(X, Y)
+		else:
+			group1, group2 = labels
+
+
+		m1 = len(group1)
+		m2 = len(group2)
+
+		indicesGroup1 = np.isin(Y, group1)
+		indicesGroup2 = np.isin(Y, group2)
+
+		YGroupA = Y[indicesGroup1]
+		YGroupB = Y[indicesGroup2]
+
+		XGroupA = X[indicesGroup1,:]
+		XGroupB = X[indicesGroup2,:]
+
+
+		onesA   = np.ones((len(XGroupA),1))
+		onesB   = np.ones((len(XGroupB),1))
+
+		A       = np.concatenate(XGroupA, onesA, axis=1) 
+		B       = np.concatenate(XGroupB, onesB, axis=1)
+
+
+		G       = np.dot(A.T, A)/len(A)
+		H       = np.dot(B.T, B)/len(B)
+
+		if rank(G) == len(G) and rank(H) == len(H):
+			eigenVectors, eigenValues = GeneralizedEigenSoln(G, H)#Implemented in Utils
+
+			W1 = eigenVectors[0]
+			W2 = eigenVectors[0]
+			W  = np.stack(W1,W2, axis=1)
+
+
+
+		else:
+			if sss_mode   == 'Tikhonov':
+				#To be Implemented
+			elif sss_mode == 'axisParallel':
+				bestCutVar, bestCutValue = axis_parallel_cut(X,Y,variables)
+
+				W1      = np.zeros(len(G),1)  
+				W1[-1]  = bestCutValue
+
+				W       = np.stack(W1, W1, axis=1)
+
+		splitFlag, Plane = selectHyperplane(X,Y,variables,W)#To be Implemented
+
+		return splitFlag, Plane
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -93,11 +182,11 @@ class CART:
 			Plane[-1]                = bestCutValue
 			return Plane, bestCutVar
 		elif mode == 'hyperplane_psvm_delta':
-			Plane = self.hyperplane_psvm(X,Y, delta)
-			return Plane
+			splitFlag, Plane = self.hyperplane_psvm(X,Y, delta)
+			return Plane, splitFlag
 		elif mode == 'hyperplane_psvm':
-			Plane = self.hyperplane_psvm(X,Y)
-			return Plane
+			splitFlag, Plane = self.hyperplane_psvm(X,Y)
+			return Plane, splitFlag
 		elif mode == 'hyperplane_psvm_subspace':
 			Plane = self.hyperplane_psvm_subspace(X,Y)
 			return Plane
