@@ -73,10 +73,6 @@ def gini_boundary(X, Y, minleaf = 1):
     M         = len(Y)
     Labels, frequency = np.unique(Y, return_counts=True)    
 
-    # Initially assume all the points are in the right child.
-    frequency_right   = dict(zip(Labels, frequency)) 
-    frequency_left    = {}
-
     pre_gini  = gini_from_distribution(Y)
 
     sorted_values   = np.sort(X)
@@ -84,6 +80,13 @@ def gini_boundary(X, Y, minleaf = 1):
     sorted_labels   = Y[sorted_indices]
 
     j = minleaf # Discuss Index Issues
+
+    # Initially assume the first j sorted points are on the left child of the root
+    Labels_left, frequency_left_list = np.unique(sorted_labels[:j], return_counts = True)
+    Labels_right, frequency_right_list = np.unique(sorted_labels[j:], return_counts = True)
+
+    frequency_left = dict(zip(Labels_left, frequency_left_list))
+    frequency_right = dict(zip(Labels_right, frequency_right_list))
 
     while(j<=M-minleaf-1):
         labels                      = sorted_labels[j:]

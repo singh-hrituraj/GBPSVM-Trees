@@ -1,13 +1,13 @@
 import numpy as np 
 from scipy import stats
-from utils import *
+from utils.utils import *
 
 class CART:
 	"""
 	Base class for classification and regression trees
 	"""
 
-	def __init__(self, criterion ='gini', method = 'c', minparent = 2, minleaf = 1, weights = None, nvartosample=None):
+	def __init__(self, criterion ='gini', method = 'c', minparent = 2, minleaf = 1, weights = None, nvartosample=None, mode='axis_parallel_cut'):
 		self.method        = method
 		self.criterion     = criterion
 		self.minparent     = minparent
@@ -15,23 +15,33 @@ class CART:
 		self.weights   	   = weights
 		self.nvartosample  = nvartosample
 		self.nodes         = []
+		self.mode          = mode
 
 
-	def get_node(self):
+	def _print_tree(self):
+		#To be Implemented
+		pass
+
+
+	def _get_node(self):
 		node = {}
 		node['DataIndx']      = None
-		node['Label']         = 0
-		node['ChildNode']     = 0
-		node['Variables']     = 0
-		node['Plane']         = 0
+		node['Label']         = -1
+		node['leftNode']      = -1
+		node['rightNode']     = -1
+		node['Variables']     = -1
+		node['Plane']         = -1
 
 		return node
 
-	def add_node(self, node):
+	def _add_node(self, node):
 		self.nodes.append(node)
 
 
-	def axis_parallel_cut(self, X, Y):
+
+
+	def axis_parallel_cut(self, X, Y, variables):
+		print(X)
 
 		num_features            = X.shape[1]
 		pre_gini                = gini_from_distribution(Y)
@@ -45,13 +55,15 @@ class CART:
 
 		for i in range(num_features):
 			cut_values[i], impurity[i] = gini_boundary(X[:,i], Y, self.minleaf)
+			print(impurity[i])
+			print(cut_values[i])
 
 		min_index    = np.argmin(impurity)
 		min_impurity = impurity[min_index]
 		bestCutValue = cut_values[min_index]
 
 		if min_impurity < pre_gini:
-			bestCutVar = min_index
+			bestCutVar = variables[min_index]
 		else:
 			bestCutVar = -1
 
@@ -70,20 +82,16 @@ class CART:
 
 
 
-	def bestCutNode(self,  X, Y, mode = 'axis_parallel_cut', delta = 0.01):
+	def bestCutNode(self,  X, Y, variables, mode = 'axis_parallel_cut', delta = 0.01):
 
-		if len(self.weights) > 0:
-			Wcd = W[currentDataIndx]
-		else:
-			Wcd = []
 
 		if mode == 'axis_parallel_cut':
-			bestCutVar, bestCutValue = self.axis_parallel_cut(X, Y)
+			bestCutVar, bestCutValue = self.axis_parallel_cut(X, Y, variables=variables)
 			num_variables            = X.shape[1]
 			Plane                    = np.zeros(num_variables+1,)
 			Plane[bestCutVar]        = 1
 			Plane[-1]                = bestCutValue
-			return Plane
+			return Plane, bestCutVar
 		elif mode == 'hyperplane_psvm_delta':
 			Plane = self.hyperplane_psvm(X,Y, delta)
 			return Plane
@@ -118,7 +126,7 @@ class CART:
 	def train(self, X, Y):
 		N = len(Y) #No of Samples
 		L = 2*np.ceil(N/self.minleaf - 1) #Maximum number of nodes
-		M = X.shape[2] #No of features per instance
+		M = X.shape[1] #No of features per instance
 
 		#Creating the root node
 		new_node             = self._get_node()
@@ -127,7 +135,7 @@ class CART:
 
 
 
-		if method in ['c', 'g']:#Classification
+		if self.method in ['c', 'g']:#Classification
 			unique_labels, inverse_indices = np.unique(Y, return_inverse=True)
 			num_labels                     = len(unique_labels)
 		else:#Regression
@@ -137,7 +145,7 @@ class CART:
 		current_node_idx = 0
 
 		#While the current node is still not solved fully
-		while current_node_idx<L:
+		while current_node_idx<len(self.nodes):
 			new_node_left   = self._get_node()
 			new_node_right  = self._get_node()
 			current_node    = self.nodes[current_node_idx]
@@ -146,50 +154,83 @@ class CART:
 
 			#If node is totally pure
 			if len(np.unique(Y[currentDataIndx])) == 1:
-				if method in ['c', 'g']:
-					current_node['Label'] = unique_labels[0]
+				if self.method in ['c', 'g']:
+					current_node['Label'] = [Y[currentDataIndx[0]]]
 				else:
-					current_node['Label'] = Y[currentDataIndx[0]]
+					current_node['Label'] = [Y[currentDataIndx[0]]]
 
 
 			else:
 				if len(currentDataIndx) >= self.minparent:
 
 					#Selecting m random variable/attributes
-					node_variables = np.random.permutation(M)
-					node_variables = node_variables[0:self.nvartosample]
+					# node_variables = np.random.permutation(M)
+					# node_variables = node_variables[0:self.nvartosample]
+					node_variables   = np.arange(M)
 
 
 
-					bestPlane = self.bestCutNode(X[currentDataIndx, node_variables], Y[currentDataIndx])
+
+					bestPlane, bestCutVar = self.bestCutNode(X[currentDataIndx][:,node_variables], Y[currentDataIndx], mode=self.mode, variables=node_variables)
+
 
 					if bestCutVar !=-1:
 						current_node['Variables']   = node_variables
 						current_node['Plane']       = bestPlane
-						PlaneOutput                 = np.dot(X[currentDataIndx,node_variables], bestPlane[:-1])
+						PlaneOutput                 = np.dot(X[currentDataIndx][:,node_variables], bestPlane[:-1])
 
-						new_node_left['DataIndx']   = currentDataIndx[PlaneOutput<=bestPlane[-1]
-						new_node_right              = currentDataIndx[PlaneOutput > bestPlane[-1]
-						current_node['ChildNode']   = len(self.nodes)
+						new_node_left['DataIndx']   = currentDataIndx[PlaneOutput<=bestPlane[-1]]
+						new_node_right['DataIndx']  = currentDataIndx[PlaneOutput > bestPlane[-1]]
+						current_node['leftNode']    = len(self.nodes)
+						current_node['rightNode']   = len(self.nodes)+1
 
 						#Adding the newly created left and right nodes to the tree
 						self._add_node(new_node_left)
 						self._add_node(new_node_right)
 
 					else:
-						if method in ['c', 'g']:
-							[leaf_label,_]           = stats.mode(Y[currentDataIndx], axis=None)
-							current_node['Label']    = leaf_label
+						if self.method in ['c', 'g']:
+							leaf_label,_             = stats.mode(Y[currentDataIndx], axis=None)
+
 						else:
 							current_node['Label']    = np.mean(Y[currentDataIndx])
 				else:
-					if method in ['c', 'g']:
+					if self.method in ['c', 'g']:
 						[leaf_label,_]           = stats.mode(Y[currentDataIndx], axis=None)
 						current_node['Label']    = leaf_label
 					else:
 						current_node['Label']    = np.mean(Y[currentDataIndx])
 
 			current_node_idx += 1
+
+
+	def predict(self, X):
+		M = len(X)
+
+		output           = []
+		current_node     = self.nodes[0]
+
+		for i in range(M):
+			x = X[i,:]
+
+			while current_node['leftNode']!=-1 and current_node['rightNode']!=-1 :
+				direction = np.dot(current_node['Plane'][:-1], x[current_node['Variables']])
+				if direction <=current_node['Plane'][-1]:
+					current_node = self.nodes[current_node['leftNode']]
+				else:
+					current_node = self.nodes[current_node['rightNode']]
+
+
+			output.append(current_node['Label'])
+
+		return np.array(output)
+
+
+
+
+
+
+
 
 
 
