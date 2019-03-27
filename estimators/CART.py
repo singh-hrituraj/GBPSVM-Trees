@@ -2,8 +2,6 @@ import numpy as np
 from scipy import stats
 from utils import *
 
-
-
 class CART:
 	"""
 	Base class for classification and regression trees
@@ -36,7 +34,7 @@ class CART:
 	def axis_parallel_cut(self, X, Y):
 
 		num_features            = X.shape[1]
-		pre_gini                = gini(Y)
+		pre_gini                = gini_from_distribution(Y)
 
 
 
