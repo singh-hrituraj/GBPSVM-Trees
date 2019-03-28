@@ -109,18 +109,33 @@ class CART:
 
 		G       = np.dot(A.T, A)/len(A)
 		H       = np.dot(B.T, B)/len(B)
+		rankDG  = rank(G) == len(G)
+		rankDH  = rank(H) == len(H)
 
-		if rank(G) == len(G) and rank(H) == len(H):
-			eigenVectors, eigenValues = GeneralizedEigenSoln(G, H)#Implemented in Utils
+		if  rankDG and rankDH:
+			eigenValues, eigenVectors = GeneralizedEigenSoln(G, H)#Implemented in Utils
 
-			W1 = eigenVectors[0]
-			W2 = eigenVectors[0]
+			W1 = eigenVectors[:, 0]
+			W2 = eigenVectors[:,-1]
 			W  = np.stack(W1,W2, axis=1)
 
 
 
 		else:
 			if sss_mode   == 'Tikhonov':
+				if rankDG:
+					G  = G + delta*np.eye(len(G))
+				if rankDH:
+					H  = H + delta*np.eye(len(H))
+				eigenValues, eigenVectors = GeneralizedEigenSoln(G, H)#Implemented in Utils
+
+				W1 = eigenVectors[:, 0]
+				W2 = eigenVectors[:,-1]
+				W  = np.stack(W1,W2, axis=1)
+
+
+
+
 				#To be Implemented
 			elif sss_mode == 'axisParallel':
 				bestCutVar, bestCutValue = axis_parallel_cut(X,Y,variables)
@@ -130,39 +145,9 @@ class CART:
 
 				W       = np.stack(W1, W1, axis=1)
 
-		splitFlag, Plane = selectHyperplane(X,Y,variables,W)#To be Implemented
+		splitFlag, Plane = selectHyperplane(X,Y,W, minleaf=self.minleaf)#To be Implemented
 
 		return splitFlag, Plane
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

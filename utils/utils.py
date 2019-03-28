@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import eig
-
+from numpy.linalg import norm
 
 def gini_from_distribution(distribution):
     """
@@ -54,7 +54,7 @@ def find_best_split_gini(X, Y, minleaf):
     # Consider each feature separately and find the one that produces the best split.
     for ftr_idx in range(X.shape[1]):
         # Find the best cut value and impurity for this feature.
-        cut_val, impurity = find_best_cut_value(X[:, ftr_idx], Y, minleaf)
+        cut_val, impurity = gini_boundary(X[:, ftr_idx], Y, minleaf)
 
         if (impurity < best_impurity):
             best_cut_val = cut_val
@@ -132,3 +132,104 @@ def generalized_eigen_soln(G, H):
     return eig_vals[sorted_idx], eig_vectors[sorted_idx]
 
 
+def selectHyperplane(W, X, Y, minleaf):
+    """
+    Selects the optimal hyperplane while using the output solution of 
+    generalized eigen value problem on the bases of gini impurity 
+    minimization
+    """
+
+    labels, frequency = np.unique(Y, return_counts=True)
+    M                 = len(labels)
+
+    pre_gini          = gini_from_distribution(Y)
+
+    if W[0,:].all() == W[1,:].all():
+        W3 = W[:,0]
+        W4 = W[:,1]
+    else:
+        W3   = W[:,0]/norm(W[:-1,0]) + W[:,1]/norm(W[:-1,1])
+        W4   = W[:,0]/norm(W[:-1,0]) - W[:,1]/norm(W[:-1,1])
+
+
+
+
+    Y1 = np.dot(X,W3[:-1]) - W3[-1]
+    Y2 = np.dot(X,W4[:-1]) - W4[-1]
+
+
+    #New gini if we split using W3
+    IndexPos      = np.nonzero(Y1>0)
+    IndexNeg      = np.nonzero(Y1<=0)
+
+    MinCriteriaW3 = len(IndexPos) >= minleaf and len(IndexNeg) < minleaf
+    labelsPos     = Y[IndexPos]
+    labelsNeg     = Y[IndexNeg]
+    giniPos       = gini_from_distribution(labelsPos)
+    giniNeg       = gini_from_distribution(labelsNeg)
+
+    PosRatio      = len(IndexPos)/float(len(Y))
+    NegRatio      = len(IndexNeg)/float(len(Y))
+
+    giniW3        = PosRatio*giniPos + NegRatio*giniNeg 
+
+
+
+
+
+    #New Gini if we split using W4
+    IndexPos      = np.nonzero(Y2>0)
+    IndexNeg      = np.nonzero(Y2<=0)
+
+    MinCriteriaW4 = len(IndexPos) >= minleaf and len(IndexNeg) < minleaf
+    labelsPos     = Y[IndexPos]
+    labelsNeg     = Y[IndexNeg]
+    giniPos       = gini_from_distribution(labelsPos)
+    giniNeg       = gini_from_distribution(labelsNeg)
+
+    PosRatio      = len(IndexPos)/float(len(Y))
+    NegRatio      = len(IndexNeg)/float(len(Y))
+
+    giniW4        = PosRatio*giniPos + NegRatio*giniNeg
+
+
+    if MinCriteriaW3 and MinCriteriaW4:
+        if giniW3 > giniW4:
+            Plane = W4
+        else:
+            Plane = W3
+
+        post_gini = min(giniW4, giniW3)
+        if post_gini > pre_gini:
+            splitFlag =  1
+        else:
+            splitFlag = -1
+
+    else:
+        if MinCriteriaW3:
+            Plane    = W3
+            if giniW3 < pre_gini:
+                splitFlag = 1
+            else:
+                splitFlag = -1
+        
+        elif MinCriteriaW4:
+            Plane    = W4
+            if giniW4 < pre_gini:
+                splitFlag = 1
+            else:
+                splitFlag = -1
+
+        else:
+            Plane     = W3
+            splitFlag = -1
+    return splitFlag, Plane
+
+
+
+
+
+
+
+
+        
