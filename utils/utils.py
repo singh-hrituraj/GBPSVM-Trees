@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import eig
-from numpy.linalg import norm
+from numpy.linalg import matrix_rank, inv, det, norm
 
 def gini_from_distribution(distribution):
     """
@@ -10,8 +10,7 @@ def gini_from_distribution(distribution):
     # Get the count of each unique value in distribution.
     _, per_class_count = np.unique(distribution, return_counts = True)
 
-    # Calculate the gini impurity.
-    gini_impurity = 1 - sum(np.square(per_class_count))/(sample_count * sample_count)
+    # Calculate the gini impurity.  gini_impurity = 1 - sum(np.square(per_class_count))/(sample_count * sample_count)
 
     return gini_impurity
     
@@ -152,8 +151,6 @@ def selectHyperplane(W, X, Y, minleaf):
         W4   = W[:,0]/norm(W[:-1,0]) - W[:,1]/norm(W[:-1,1])
 
 
-
-
     Y1 = np.dot(X,W3[:-1]) - W3[-1]
     Y2 = np.dot(X,W4[:-1]) - W4[-1]
 
@@ -172,9 +169,6 @@ def selectHyperplane(W, X, Y, minleaf):
     NegRatio      = len(IndexNeg)/float(len(Y))
 
     giniW3        = PosRatio*giniPos + NegRatio*giniNeg 
-
-
-
 
 
     #New Gini if we split using W4
@@ -226,10 +220,92 @@ def selectHyperplane(W, X, Y, minleaf):
     return splitFlag, Plane
 
 
+def is_singular(M):
+    """
+    Returns true if square matrix M is singular, else false.
+    """
+    return matrix_rank(M) != M.shape[0]
 
 
+def bhattacharya_distance(x1_mean, x2_mean, x1_cov, x2_cov):
+    """
+    Calculates the Bhattacharya distance between two classes.
+    Parameters:
+    x1_mean, x2_mean: Mean of the two classes.
+    x1_cov, x2_cov: Covariance matrices of the two classes.
+    """
+
+    if is_singular(x1_cov + x2_cov) or x1_cov.shape[0] == 1:
+        return norm(x1_mean - x2_mean)
+
+    temp = x1_mean - x2_mean
+    d = (temp.transpose() * inv((x1_cov + x2_cov)/2) * temp)/8
+    d += 0.5* np.log(det((x1_cov + x2_cov)/2) / sqrt(det(x1_cov)*det(x2_cov)))
+
+    return d
 
 
+def multi_to_binary_grouping(X, Y):
+    """"
+    For a given sample set with more than two classes, groups them into
+    two hyper classes based on Bhattacharya distance.
+    Parameters:
+    X: Feature matrix.
+    Y: Label matrix.
+    """
+    group1 = []
+    group2 = []
 
+    unique_labels = np.unique(Y)
+    n_unique_labels = len(unique_labels)
+    # Lists to store mean and covariance of each feature in X, per unique
+    # label.
+    x_mean = []
+    x_cov  = []
 
-        
+    for label in unique_labels:
+        # Get all the samples with this label.
+        x_temp = X[Y==label, :]
+        # Store mean and covariance.
+        x_mean.append(np.mean(x_temp))
+        x_cov.append(np.cov(x_temp.transpose()))
+
+    # Matrix to store the bhattacharya distance between every label pair.
+    distance = np.zeros((n_unique_labels, n_unique_labels))
+
+    # Populate the distance matrix.
+    max_dist = 0
+    max_dist_pair = []
+    for i in range(n_unique_labels):
+        for j in range(i+1, n_unique_labels):
+            distance[i,j] = bhattacharya_distance(
+                    x_mean[i], x_mean[j], x_cov[i], x_cov[j])
+
+            # Update max distance if required.
+            if(distance[i,j] > max_dist):
+                max_dist = distance[i,j]
+                max_dist_pair = [i, j]
+
+    # Since this matrix is symmetric, populate the lower triangle from the 
+    # upper triangle values.
+    # Get all the indices corresponding to the lower triangle.
+    idx_lower_tri = np.tril_indices(distance.shape[0], -1)
+    # Populate lower triangle
+    distance[idx_lower_tri] = np.transpose(distance)[idx_lower_tri]
+    
+    # Put the labels with maximum distance in two separate groups.
+    group1.append(unique_labels[max_dist_pair[0]])
+    group2.append(unique_labels[max_dist_pair[1]])
+
+    # For other labels, assign them the same group as the label in
+    # max_dist_pair to which it is closer to.
+    for i in range(n_unique_labels):
+        if i in max_dist_pair:
+            continue
+
+        if distance[i, max_dist_pair[0]] <= distance[i, max_dist_pair[1]]:
+            group1.append(unique_labels[i])
+        else:
+            group2.append(unique_labels[i])
+
+    return group1, group2
