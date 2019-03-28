@@ -1,5 +1,5 @@
 import numpy as np 
-import numpy.linalg.matrix_rank as rank
+from numpy.linalg import matrix_rank as rank
 from scipy import stats
 from utils.utils import *
 
@@ -27,7 +27,7 @@ class CART:
 	def _get_node(self):
 		node = {}
 		node['DataIndx']      = None
-		node['Label']         = -1
+		node['Label']         = None
 		node['leftNode']      = -1
 		node['rightNode']     = -1
 		node['Variables']     = -1
@@ -73,7 +73,7 @@ class CART:
 		return bestCutVar, bestCutValue
 
 
-	def hyperplane_psvm(self, X, Y, variables, sss_mode='Tikhonov',delta=None):
+	def hyperplane_psvm(self, X, Y, variables, sss_mode='Tikhonov',delta=0.01):
 		labels    = np.unique(Y)
  
 		if len(labels)==1:
@@ -84,7 +84,7 @@ class CART:
 		if len(labels)>=3:
 			group1, group2 = group(X, Y)
 		else:
-			group1, group2 = labels
+			group1, group2 = [labels[0]], [labels[1]]
 
 
 		m1 = len(group1)
@@ -100,20 +100,23 @@ class CART:
 		XGroupB = X[indicesGroup2,:]
 
 
-		onesA   = np.ones((len(XGroupA),1))
-		onesB   = np.ones((len(XGroupB),1))
+		onesA   = -np.ones((len(XGroupA),1))
+		onesB   = -np.ones((len(XGroupB),1))
 
-		A       = np.concatenate(XGroupA, onesA, axis=1) 
-		B       = np.concatenate(XGroupB, onesB, axis=1)
+		A       = np.concatenate((XGroupA, onesA), axis=1) 
+		B       = np.concatenate((XGroupB, onesB), axis=1)
+
 
 
 		G       = np.dot(A.T, A)/len(A)
 		H       = np.dot(B.T, B)/len(B)
+
+
 		rankDG  = rank(G) == len(G)
 		rankDH  = rank(H) == len(H)
 
 		if  rankDG and rankDH:
-			eigenValues, eigenVectors = GeneralizedEigenSoln(G, H)#Implemented in Utils
+			eigenValues, eigenVectors = generalized_eigen_soln(G, H)#Implemented in Utils
 
 			W1 = eigenVectors[:, 0]
 			W2 = eigenVectors[:,-1]
@@ -123,15 +126,20 @@ class CART:
 
 		else:
 			if sss_mode   == 'Tikhonov':
-				if rankDG:
-					G  = G + delta*np.eye(len(G))
-				if rankDH:
-					H  = H + delta*np.eye(len(H))
-				eigenValues, eigenVectors = GeneralizedEigenSoln(G, H)#Implemented in Utils
 
-				W1 = eigenVectors[:, 0]
-				W2 = eigenVectors[:,-1]
-				W  = np.stack(W1,W2, axis=1)
+	
+				G1  = G + delta*np.eye(len(G))
+				eigenValues, eigenVectors = generalized_eigen_soln(H, G1)#Implemented in Utils
+				W1  = eigenVectors[:, -1]
+
+				
+				H2  = H + delta*np.eye(len(H))
+				eigenValues, eigenVectors = generalized_eigen_soln(G, H2)
+				W2  = eigenVectors[:, -1]
+					
+
+				W  = np.stack((W1,W2), axis=1)
+
 
 
 
@@ -143,7 +151,8 @@ class CART:
 				W1      = np.zeros(len(G),1)  
 				W1[-1]  = bestCutValue
 
-				W       = np.stack(W1, W1, axis=1)
+				W       = np.stack((W1, W1), axis=1)
+
 
 		splitFlag, Plane = selectHyperplane(X,Y,W, minleaf=self.minleaf)#To be Implemented
 
@@ -170,7 +179,7 @@ class CART:
 			splitFlag, Plane = self.hyperplane_psvm(X,Y, delta)
 			return Plane, splitFlag
 		elif mode == 'hyperplane_psvm':
-			splitFlag, Plane = self.hyperplane_psvm(X,Y)
+			splitFlag, Plane = self.hyperplane_psvm(X,Y, variables)
 			return Plane, splitFlag
 		elif mode == 'hyperplane_psvm_subspace':
 			Plane = self.hyperplane_psvm_subspace(X,Y)

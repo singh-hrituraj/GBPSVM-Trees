@@ -1,16 +1,19 @@
 import numpy as np
-from scipy.linalg import eig
+from scipy.linalg import eigh
 from numpy.linalg import matrix_rank, inv, det, norm
 
 def gini_from_distribution(distribution):
     """
     Calculates gini impurity for the given distribution.
     """
+    if len(distribution)==0:
+        return -1
     sample_count = len(distribution)
     # Get the count of each unique value in distribution.
     _, per_class_count = np.unique(distribution, return_counts = True)
 
-    # Calculate the gini impurity.  gini_impurity = 1 - sum(np.square(per_class_count))/(sample_count * sample_count)
+    # Calculate the gini impurity.  
+    gini_impurity = 1 - sum(np.square(per_class_count))/(sample_count * sample_count)
 
     return gini_impurity
     
@@ -124,42 +127,62 @@ def generalized_eigen_soln(G, H):
     eig_vals : list of eigen values in increasing order.
     eig_vectors: list of eigen vectors corresponding to the sorted list of eigen values.
     """
-    eig_vals, eig_vectors = eig(G, H)
+    eig_vals, eig_vectors = eigh(G, H)
 
     sorted_idx = np.argsort(eig_vals)
 
     return eig_vals[sorted_idx], eig_vectors[sorted_idx]
 
 
-def selectHyperplane(W, X, Y, minleaf):
+def selectHyperplane(X, Y, W, minleaf):
     """
     Selects the optimal hyperplane while using the output solution of 
     generalized eigen value problem on the bases of gini impurity 
     minimization
     """
 
+
     labels, frequency = np.unique(Y, return_counts=True)
     M                 = len(labels)
 
     pre_gini          = gini_from_distribution(Y)
 
-    if W[0,:].all() == W[1,:].all():
+    epsilon           = 0.1
+
+    equal             = np.equal(W[:,0],W[:,1]).all()
+    parallel          = np.dot(W[:,0],W[:,1])/(norm(W[:,0]*norm(W[:,1])))>1-epsilon
+
+
+    if equal:
         W3 = W[:,0]
         W4 = W[:,1]
+
+    elif parallel:
+        W3 = W[:,0]
+        W4 = W[:,1]
+
+        W3[-1] = 0.5*(W3[-1] + W4[-1])
+        W4[-1] = W3[-1]
+
     else:
         W3   = W[:,0]/norm(W[:-1,0]) + W[:,1]/norm(W[:-1,1])
         W4   = W[:,0]/norm(W[:-1,0]) - W[:,1]/norm(W[:-1,1])
+    
+
+
 
 
     Y1 = np.dot(X,W3[:-1]) - W3[-1]
     Y2 = np.dot(X,W4[:-1]) - W4[-1]
 
 
-    #New gini if we split using W3
-    IndexPos      = np.nonzero(Y1>0)
-    IndexNeg      = np.nonzero(Y1<=0)
 
-    MinCriteriaW3 = len(IndexPos) >= minleaf and len(IndexNeg) < minleaf
+    #New gini if we split using W3
+    IndexPos      = np.nonzero(Y1>0)[0]
+    IndexNeg      = np.nonzero(Y1<=0)[0]
+
+    MinCriteriaW3 = (len(IndexPos) >= minleaf and len(IndexNeg) >= minleaf)
+
     labelsPos     = Y[IndexPos]
     labelsNeg     = Y[IndexNeg]
     giniPos       = gini_from_distribution(labelsPos)
@@ -172,12 +195,17 @@ def selectHyperplane(W, X, Y, minleaf):
 
 
     #New Gini if we split using W4
-    IndexPos      = np.nonzero(Y2>0)
-    IndexNeg      = np.nonzero(Y2<=0)
+    IndexPos      = np.nonzero(Y2>0)[0]
+    IndexNeg      = np.nonzero(Y2<=0)[0]
 
-    MinCriteriaW4 = len(IndexPos) >= minleaf and len(IndexNeg) < minleaf
+    MinCriteriaW4 = (len(IndexPos) >= minleaf and len(IndexNeg) >= minleaf)
+    
+
+
     labelsPos     = Y[IndexPos]
     labelsNeg     = Y[IndexNeg]
+    
+
     giniPos       = gini_from_distribution(labelsPos)
     giniNeg       = gini_from_distribution(labelsNeg)
 
@@ -194,7 +222,8 @@ def selectHyperplane(W, X, Y, minleaf):
             Plane = W3
 
         post_gini = min(giniW4, giniW3)
-        if post_gini > pre_gini:
+        
+        if post_gini < pre_gini:
             splitFlag =  1
         else:
             splitFlag = -1
@@ -202,6 +231,7 @@ def selectHyperplane(W, X, Y, minleaf):
     else:
         if MinCriteriaW3:
             Plane    = W3
+            print(Plane)
             if giniW3 < pre_gini:
                 splitFlag = 1
             else:
