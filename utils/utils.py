@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import eigh
 from numpy.linalg import matrix_rank, inv, det, norm
-
+import math
 def gini_from_distribution(distribution):
     """
     Calculates gini impurity for the given distribution.
@@ -270,12 +270,13 @@ def bhattacharya_distance(x1_mean, x2_mean, x1_cov, x2_cov):
 
     temp = x1_mean - x2_mean
     d = (temp.transpose() * inv((x1_cov + x2_cov)/2) * temp)/8
-    d += 0.5* np.log(det((x1_cov + x2_cov)/2) / sqrt(det(x1_cov)*det(x2_cov)))
+    d += 0.5* np.log(det((x1_cov + x2_cov)/2) / math.sqrt(det(x1_cov)*det(x2_cov)))
+    print("D: ",d)
 
     return d
 
 
-def multi_to_binary_grouping(X, Y):
+def group(X, Y):
     """"
     For a given sample set with more than two classes, groups them into
     two hyper classes based on Bhattacharya distance.
@@ -308,8 +309,7 @@ def multi_to_binary_grouping(X, Y):
     max_dist_pair = []
     for i in range(n_unique_labels):
         for j in range(i+1, n_unique_labels):
-            distance[i,j] = bhattacharya_distance(
-                    x_mean[i], x_mean[j], x_cov[i], x_cov[j])
+            distance[i,j] = bhattacharya_distance(x_mean[i], x_mean[j], x_cov[i], x_cov[j])
 
             # Update max distance if required.
             if(distance[i,j] > max_dist):

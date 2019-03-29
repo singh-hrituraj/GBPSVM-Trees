@@ -1,14 +1,24 @@
 import numpy as np 
 from ensembles.RF import RF
 from estimators.CART import CART
+import scipy.io as io
 
 
-Forest=  RF(n_estimators = 2, nvartosample=2, mode='hyperplane_psvm', replace=False)
+tree  = CART(nvartosample=4, mode='hyperplane_psvm')
+
+dataX = np.array(io.loadmat('iris.mat')['dataX'])
+dataY = np.array(io.loadmat('iris.mat')['dataY']).squeeze()
+
+# dataX = np.array([[1,1],[1,2],[1,3],[2,1],[2,2],[2,3]])
+# dataY = np.array([-1,-1,-1,1,1,1])
+tree.train(dataX, dataY)
 
 
-dataX = np.array([[1,1],[1,2],[1,3],[2,1],[2,2],[2,3]])
-dataY = np.array([-1,-1,-1,1,1,1])
+predict  = tree.predict(dataX)
+
+accuracy = np.sum(predict==dataY)/float(len(dataY))
+
+print(accuracy)
 
 
-Forest.train(dataX,dataY)
-print(Forest.predict(dataX))
+

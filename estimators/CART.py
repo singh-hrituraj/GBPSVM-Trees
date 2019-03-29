@@ -48,7 +48,7 @@ class CART:
 
 
 
-	def axis_parallel_cut(self, X, Y, variables):
+	def axis_parallel_cut(self, X, Y):
 		
 
 		num_features            = X.shape[1]
@@ -63,15 +63,14 @@ class CART:
 
 		for i in range(num_features):
 			cut_values[i], impurity[i] = gini_boundary(X[:,i], Y, self.minleaf)
-			print(impurity[i])
-			print(cut_values[i])
+
 
 		min_index    = np.argmin(impurity)
 		min_impurity = impurity[min_index]
 		bestCutValue = cut_values[min_index]
 
 		if min_impurity < pre_gini:
-			bestCutVar = variables[min_index]
+			bestCutVar = min_index
 		else:
 			bestCutVar = -1
 
@@ -80,7 +79,7 @@ class CART:
 		return bestCutVar, bestCutValue
 
 
-	def hyperplane_psvm(self, X, Y, variables,delta=0.01):
+	def hyperplane_psvm(self, X, Y,delta=0.01):
 		labels    = np.unique(Y)
  
 		if len(labels)==1:
@@ -153,7 +152,7 @@ class CART:
 
 				#To be Implemented
 			elif self.sss_mode == 'axisParallel':
-				bestCutVar, bestCutValue = axis_parallel_cut(X,Y,variables)
+				bestCutVar, bestCutValue = axis_parallel_cut(X,Y)
 
 				W1      = np.zeros(len(G),1)  
 				W1[-1]  = bestCutValue
@@ -172,18 +171,18 @@ class CART:
 
 
 
-	def bestCutNode(self,  X, Y, variables, mode = 'axis_parallel_cut', delta = 0.01):
+	def bestCutNode(self,  X, Y, mode = 'axis_parallel_cut', delta = 0.01):
 
 
 		if mode == 'axis_parallel_cut':
-			bestCutVar, bestCutValue = self.axis_parallel_cut(X, Y, variables=variables)
-			num_variables            = X.shape[1]
-			Plane                    = np.zeros(num_variables+1,)
-			Plane[bestCutVar]        = 1
-			Plane[-1]                = bestCutValue
+			bestCutVar, bestCutValue      = self.axis_parallel_cut(X, Y)
+			num_variables                 = X.shape[1]
+			Plane                         = np.zeros(num_variables+1,)
+			Plane[bestCutVar]             = 1
+			Plane[-1]                     = bestCutValue
 			return Plane, bestCutVar
 		elif mode == 'hyperplane_psvm':
-			splitFlag, Plane = self.hyperplane_psvm(X,Y, variables)
+			splitFlag, Plane = self.hyperplane_psvm(X,Y)
 			return Plane, splitFlag
 		elif mode == 'hyperplane_psvm_subspace':
 			Plane = self.hyperplane_psvm_subspace(X,Y)
@@ -242,23 +241,23 @@ class CART:
 			#If node is totally pure
 			if len(np.unique(Y[currentDataIndx])) == 1:
 				if self.method in ['c', 'g']:
-					current_node['Label'] = [Y[currentDataIndx[0]]]
+					current_node['Label'] = Y[currentDataIndx[0]]
 				else:
-					current_node['Label'] = [Y[currentDataIndx[0]]]
+					current_node['Label'] = Y[currentDataIndx[0]]	
 
 
 			else:
 				if len(currentDataIndx) >= self.minparent:
 
 					#Selecting m random variable/attributes
-					# node_variables = np.random.permutation(M)
-					# node_variables = node_variables[0:self.nvartosample]
-					node_variables   = np.arange(M)
+					node_variables = np.random.permutation(M)
+					node_variables = node_variables[0:self.nvartosample]
+					
 
 
 
 
-					bestPlane, bestCutVar = self.bestCutNode(X[currentDataIndx][:,node_variables], Y[currentDataIndx], mode=self.mode, variables=node_variables)
+					bestPlane, bestCutVar = self.bestCutNode(X[currentDataIndx][:,node_variables], Y[currentDataIndx], mode=self.mode)
 
 
 					if bestCutVar !=-1:
@@ -277,14 +276,17 @@ class CART:
 
 					else:
 						if self.method in ['c', 'g']:
-							leaf_label,_             = stats.mode(Y[currentDataIndx], axis=None)
+							leaf_label,_             = np.array(stats.mode(Y[currentDataIndx], axis=None))
+							current_node['Label']    = leaf_label[0]
 
 						else:
 							current_node['Label']    = np.mean(Y[currentDataIndx])
 				else:
 					if self.method in ['c', 'g']:
-						[leaf_label,_]           = stats.mode(Y[currentDataIndx], axis=None)
-						current_node['Label']    = leaf_label
+						leaf_label, _             = np.array(stats.mode(Y[currentDataIndx], axis=None))
+						
+						current_node['Label']     = leaf_label[0]
+
 					else:
 						current_node['Label']    = np.mean(Y[currentDataIndx])
 
@@ -308,7 +310,8 @@ class CART:
 					current_node = self.nodes[current_node['rightNode']]
 
 
-			output.append(current_node['Label'][0])
+
+			output.append(current_node['Label'])
 
 		return np.array(output)
 

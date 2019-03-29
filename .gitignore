@@ -1,5 +1,5 @@
 *.swp
 *.mat
-temp_test.py
+test.py
 
 __pycache__
