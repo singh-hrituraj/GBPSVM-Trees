@@ -268,10 +268,12 @@ def bhattacharya_distance(x1_mean, x2_mean, x1_cov, x2_cov):
     if is_singular(x1_cov + x2_cov) or x1_cov.shape[0] == 1:
         return norm(x1_mean - x2_mean)
 
-    temp = x1_mean - x2_mean
-    d = (temp.transpose() * inv((x1_cov + x2_cov)/2) * temp)/8
+    # A temporary col vector to store differnce in mean. 
+    temp = np.expand_dims(x1_mean - x2_mean, axis = 1)
+
+    d = np.matmul(temp.T, inv((x1_cov + x2_cov)/2))
+    d = np.matmul(d, temp)/8
     d += 0.5* np.log(det((x1_cov + x2_cov)/2) / math.sqrt(det(x1_cov)*det(x2_cov)))
-    print("D: ",d)
 
     return d
 
@@ -298,7 +300,7 @@ def group(X, Y):
         # Get all the samples with this label.
         x_temp = X[Y==label, :]
         # Store mean and covariance.
-        x_mean.append(np.mean(x_temp))
+        x_mean.append(np.mean(x_temp, axis = 0))
         x_cov.append(np.cov(x_temp.transpose()))
 
     # Matrix to store the bhattacharya distance between every label pair.

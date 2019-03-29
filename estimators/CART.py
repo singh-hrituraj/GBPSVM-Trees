@@ -126,7 +126,7 @@ class CART:
 
 			W1 = eigenVectors[:, 0]
 			W2 = eigenVectors[:,-1]
-			W  = np.stack(W1,W2, axis=1)
+			W  = np.stack((W1,W2), axis=1)
 
 
 
