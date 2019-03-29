@@ -3,6 +3,8 @@ from numpy.linalg import matrix_rank as rank
 from scipy import stats
 from utils.utils import *
 
+np.random.seed(0)
+
 class CART:
 	"""
 	Base class for classification and regression trees

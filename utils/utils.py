@@ -231,7 +231,7 @@ def selectHyperplane(X, Y, W, minleaf):
     else:
         if MinCriteriaW3:
             Plane    = W3
-            print(Plane)
+  
             if giniW3 < pre_gini:
                 splitFlag = 1
             else:

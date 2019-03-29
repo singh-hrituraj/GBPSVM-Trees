@@ -5,13 +5,13 @@ Indian Institute of Technology Roorkee
 import numpy as np 
 from estimators.CART import CART
 from scipy import stats
-
+np.random.seed(0)
 
 class RF:
 	"""
 	Base class for Random Forest
 	"""
-	def __init__(self, n_estimators = 100, minparent=2, nvartosample=None, minleaf=1, mode='axis_parallel', method = 'c',sss_mode='Tikhonov', replace = True):
+	def __init__(self, n_estimators = 100, minparent=2, nvartosample=None, minleaf=1, mode='axis_parallel_cut', method = 'c',sss_mode='Tikhonov', replace = True):
 		self.n_estimators = n_estimators
 		self.minparent    = minparent
 		self.minleaf      = minleaf
@@ -46,13 +46,13 @@ class RF:
 				indices = np.arange(n)
 
 
-			tree = self.generate_tree(X[indices], Y[indices], )
+			tree = self.generate_tree(X[indices], Y[indices])
 			self._add_tree(tree)
 
 			if i%1 == 0:
-				if self.method=='axis_parallel':
+				if self.method=='axis_parallel_cut':
 					print(i, ' Axis Parallel Decision Trees Generated in Random Forest')
-				elif self.method =='MPSVM':
+				elif self.method =='hyperplane_psvm':
 					print(i, ' Geometric Decision Trees Generated in Random Forest')
 
 	def predict(self, X):
