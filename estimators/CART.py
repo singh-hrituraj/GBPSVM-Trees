@@ -8,20 +8,27 @@ class CART:
 	Base class for classification and regression trees
 	"""
 
-	def __init__(self, criterion ='gini', method = 'c', minparent = 2, minleaf = 1, weights = None, nvartosample=None, mode='axis_parallel_cut'):
+	def __init__(self, criterion ='gini', method = 'c', minparent = 2, minleaf = 1, weights = None, nvartosample=None, mode='axis_parallel_cut', sss_mode='Tikhonov'):
 		self.method        = method
 		self.criterion     = criterion
 		self.minparent     = minparent
 		self.minleaf       = minleaf
 		self.weights   	   = weights
+		self.mode          = mode
+		self.sss_mode      = sss_mode
 		self.nvartosample  = nvartosample
 		self.nodes         = []
-		self.mode          = mode
 
 
-	def _print_tree(self):
-		#To be Implemented
-		pass
+
+	def print(self):
+		#To be implemented
+		if len(self.nodes)==0:
+			print("Tree is empty!")
+		for node in self.nodes:
+			print("Data Index: ", node['DataIndx'])
+			print("Label:      ", node['Label'])
+			print("Plane:      ", node['Plane'])
 
 
 	def _get_node(self):
@@ -31,7 +38,7 @@ class CART:
 		node['leftNode']      = -1
 		node['rightNode']     = -1
 		node['Variables']     = -1
-		node['Plane']         = -1
+		node['Plane']         = None
 
 		return node
 
@@ -73,7 +80,7 @@ class CART:
 		return bestCutVar, bestCutValue
 
 
-	def hyperplane_psvm(self, X, Y, variables, sss_mode='Tikhonov',delta=0.01):
+	def hyperplane_psvm(self, X, Y, variables,delta=0.01):
 		labels    = np.unique(Y)
  
 		if len(labels)==1:
@@ -125,7 +132,7 @@ class CART:
 
 
 		else:
-			if sss_mode   == 'Tikhonov':
+			if self.sss_mode   == 'Tikhonov':
 
 	
 				G1  = G + delta*np.eye(len(G))
@@ -145,7 +152,7 @@ class CART:
 
 
 				#To be Implemented
-			elif sss_mode == 'axisParallel':
+			elif self.sss_mode == 'axisParallel':
 				bestCutVar, bestCutValue = axis_parallel_cut(X,Y,variables)
 
 				W1      = np.zeros(len(G),1)  
@@ -175,9 +182,6 @@ class CART:
 			Plane[bestCutVar]        = 1
 			Plane[-1]                = bestCutValue
 			return Plane, bestCutVar
-		elif mode == 'hyperplane_psvm_delta':
-			splitFlag, Plane = self.hyperplane_psvm(X,Y, delta)
-			return Plane, splitFlag
 		elif mode == 'hyperplane_psvm':
 			splitFlag, Plane = self.hyperplane_psvm(X,Y, variables)
 			return Plane, splitFlag
@@ -288,13 +292,13 @@ class CART:
 
 
 	def predict(self, X):
-		M = len(X)
+		M       = len(X)
+		output  = []
 
-		output           = []
-		current_node     = self.nodes[0]
 
 		for i in range(M):
 			x = X[i,:]
+			current_node     = self.nodes[0]
 
 			while current_node['leftNode']!=-1 and current_node['rightNode']!=-1 :
 				direction = np.dot(current_node['Plane'][:-1], x[current_node['Variables']])
@@ -304,7 +308,7 @@ class CART:
 					current_node = self.nodes[current_node['rightNode']]
 
 
-			output.append(current_node['Label'])
+			output.append(current_node['Label'][0])
 
 		return np.array(output)
 
