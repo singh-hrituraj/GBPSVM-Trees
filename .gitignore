@@ -1,5 +1,5 @@
 *.swp
 *.mat
 test.py
-
+*data/*
 __pycache__
