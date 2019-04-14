@@ -49,11 +49,11 @@ class RF:
 			tree = self.generate_tree(X[indices], Y[indices])
 			self._add_tree(tree)
 
-			if i%1 == 0:
-				if self.method=='axis_parallel_cut':
-					print(i, ' Axis Parallel Decision Trees Generated in Random Forest')
-				elif self.method =='hyperplane_psvm':
-					print(i, ' Geometric Decision Trees Generated in Random Forest')
+			# if i%5 == 0:
+			# 	if self.mode=='axis_parallel_cut':
+			# 		print(i, ' Axis Parallel Decision Trees Generated in Random Forest')
+			# 	elif self.mode =='hyperplane_psvm':
+			# 		print(i, ' Geometric Decision Trees Generated in Random Forest')
 
 	def predict(self, X):
 		

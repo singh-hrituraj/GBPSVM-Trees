@@ -2,4 +2,6 @@
 *.mat
 test.py
 *data/*
+config.txt
 __pycache__
+grid_search.txt

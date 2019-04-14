@@ -265,7 +265,7 @@ def bhattacharya_distance(x1_mean, x2_mean, x1_cov, x2_cov):
     x1_cov, x2_cov: Covariance matrices of the two classes.
     """
 
-    if is_singular(x1_cov + x2_cov) or x1_cov.shape[0] == 1:
+    if is_singular(x1_cov + x2_cov) or x1_cov.shape[0] == 1 or is_singular(x1_cov) or is_singular(x2_cov):
         return norm(x1_mean - x2_mean)
 
     # A temporary col vector to store differnce in mean. 
@@ -301,13 +301,16 @@ def group(X, Y):
         x_temp = X[Y==label, :]
         # Store mean and covariance.
         x_mean.append(np.mean(x_temp, axis = 0))
-        x_cov.append(np.cov(x_temp.transpose()))
+        if len(x_temp)==1:
+            x_cov.append(np.zeros((len(x_temp[0]), len(x_temp[0]))))
+        else:
+            x_cov.append(np.cov(x_temp.transpose()))
 
     # Matrix to store the bhattacharya distance between every label pair.
     distance = np.zeros((n_unique_labels, n_unique_labels))
 
     # Populate the distance matrix.
-    max_dist = 0
+    max_dist = -1
     max_dist_pair = []
     for i in range(n_unique_labels):
         for j in range(i+1, n_unique_labels):
@@ -326,6 +329,7 @@ def group(X, Y):
     distance[idx_lower_tri] = np.transpose(distance)[idx_lower_tri]
     
     # Put the labels with maximum distance in two separate groups.
+    
     group1.append(unique_labels[max_dist_pair[0]])
     group2.append(unique_labels[max_dist_pair[1]])
 
@@ -341,3 +345,6 @@ def group(X, Y):
             group2.append(unique_labels[i])
 
     return group1, group2
+
+
+
