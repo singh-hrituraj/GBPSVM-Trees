@@ -14,7 +14,7 @@ class GBT:
 	"""
 
 
-	def __init__(self, n_estimators = 50, learning_rate=0.1,  minparent=2, nvartosample=None, minleaf=1, mode='axis_parallel', method = 'c',sss_mode='Tikhonov'):
+	def __init__(self, n_estimators = 50, learning_rate=0.1,  minparent=2, nvartosample=None, minleaf=1, mode='axis_parallel_cut', method = 'c',sss_mode='Tikhonov'):
 		self.n_estimators  = n_estimators
 		self.minparent     = minparent
 		self.nvartosample   = nvartosample

@@ -5,8 +5,8 @@ from tqdm import tqdm
 from ensembles.GBT import GBT
 from ensembles.RF import RF
 from config import parse_config
+from sklearn.ensemble import GradientBoostingClassifier as GBC
 
-np.random.seed(0)
 
 def load_data(path, clean=True, fill=False):
 	"""
@@ -17,13 +17,99 @@ def load_data(path, clean=True, fill=False):
 	fill  : fill  the instances with missing attributes values if set to True, default False
 	"""
 
-	data = pd.read_csv(path, header=None)
+	data = pd.read_csv(path, header=None).drop(0, axis=1)
+	# data[13] = data[13].replace(2,1)
+	# data[13] = data[13].replace(3,1)
+	# data[13] = data[13].replace(4,1)
+
+
+
 	data = data.replace('?', np.nan)
 	data = data.dropna(0)
 	print("Data Loaded")
 
 
 	return np.array(data)
+
+def PSO(parameters, X, Y, mode, method, epochs=20, c_1=2, c_2=2,  ):
+	"""
+	Performs Particle Swarm Optimization by optimizing the function 
+	on the parameters and returns the best set of parameters.
+	"""
+	print("Performing PSO...")
+	#Creating the particles and helper arrays
+	num_particles   = len(parameters)
+	num_dimensions  = len(parameters[0]+2) #Additional two for Pbest and Gbest
+	particles       = np.zeros((num_particles, num_dimensions))
+	velocity        = np.zeros((num_particles, num_dimensions))
+	pbest_dimension = np.zeros((num_particles, num_dimensions))
+	gbest_dimension = np.zeros((num_dimensions))
+	p_best          = np.zeros((num_particles,1))-1000
+	g_best          = -1000
+
+
+	#Initializing the particles
+	for idx in range(num_particles):
+		particles[idx,:] = parameters[idx]
+
+	#Performing the optimization
+	for epoch in tqdm(range(epochs)):
+		w = 0.9 - 0.8*(epoch/epochs) #Variable momentum weight
+
+		#Compute fitness for each particle
+		for idx in range(num_particles):
+			fitness_ = fitness(particles[idx], X=X, Y=Y, mode=mode, method=method)
+
+			if fitness_ > p_best[idx]:
+				p_best[idx]          = fitness_
+				pbest_dimension[idx] = particles[idx]
+
+
+			if fitness_ > g_best:
+				g_best          = fitness_
+				gbest_dimension = particles[idx]
+
+	
+
+		r_1 = np.random.random()
+		r_2 = np.random.random()
+
+		velocity  = w*velocity + c_1*r_1*(p_best - particles)  + c_2*r_2*(g_best - particles)
+		particles = particles + velocity
+
+
+		#Keeping values within range
+		for idx in range(num_particles):
+			particles[idx, 0] = max(1, particles[idx, 0])
+			particles[idx, 1] = max(3, particles[idx, 1])
+			particles[idx, 2] = max(2, particles[idx, 2]) 
+
+
+
+
+	return gbest_dimension
+
+
+
+
+
+
+
+
+def fitness(parameters, X, Y, mode, method):
+	"""
+	Finds the fitness of a particle with a particular set of parameters
+	"""
+
+
+	n_estimators = int(parameters[0])
+	nvartosample = int(parameters[1])
+	minparent    = int(parameters[2])
+
+	fitness      = cross_validation(X=X, Y=Y, n_estimators=n_estimators, nvartosample=nvartosample, minparent=minparent, mode=mode, method=method, folds=5)
+
+	return fitness
+
 
 
 def three_splits(data, ratio=.1, val=True):
@@ -81,6 +167,7 @@ def get_data(X, Y, folds=10):
 	X       = ShuFull[:, :-1]
 	Y       = ShuFull[:,  -1]
 
+
 	no_in_fold = round(len(Y)/folds)
 	indices    = np.arange(len(Y))
 
@@ -103,7 +190,7 @@ def get_data(X, Y, folds=10):
 
 
 
-def cross_validation(X, Y, model=None, folds=5):
+def cross_validation(X, Y, n_estimators, nvartosample, minparent, mode, method, folds=5):
 	"""
 	Performs K-Fold Cross Validation on the given model and returns the
 	average cross validation accuracy for it
@@ -117,6 +204,11 @@ def cross_validation(X, Y, model=None, folds=5):
 
 		valX   = X_val[fold]
 		valY   = Y_val[fold]
+		if method=='RF':
+			model = RF(n_estimators=n_estimators, nvartosample=nvartosample, minparent=minparent, mode=mode)
+		else:
+			model = GBT(n_estimators=n_estimators, nvartosample=nvartosample, minparent=minparent, mode=mode)
+
 
 		model.train(trainX, trainY)
 		pred      = model.predict(valX)
@@ -141,19 +233,19 @@ def grid_search(data, n_estimators, nvartosample, minparent, mode, method):
 	for n_est in tqdm(n_estimators):
 		for n_var in nvartosample:
 			for minp in minparent:
-				if mode=='RF':
-					model    = RF(n_estimators =n_est, nvartosample=n_var,minparent=minp, mode=method)
-				else:
-					model    = GBT(n_estimators =n_est, nvartosample=n_var,minparent=minp, mode=method)
-				accuracy = cross_validation(X,Y, model=model, folds=10)
+				accuracy = cross_validation(X,Y, n_estimators=n_est, nvartosample=n_var, minparent=minp, mode=mode, method=method, folds=10)
+
 
 				if accuracy>best_accuracy:
 					best_accuracy = accuracy
 					best_nest     = n_est
 					best_n_var    = n_var
 					best_minp     = minp
+	if method=='RF':				
+		model = RF(n_estimators=best_nest, nvartosample=best_n_var, minparent= best_minp, mode=mode)
+	else:
+		model = GBT(n_estimators=best_nest, nvartosample=best_n_var, minparent= best_minp, mode=mode)
 
-	model = RF(n_estimators=best_nest, nvartosample=best_n_var, minparent= best_minp)
 
 	info  = open('grid_search.txt', 'a')
 
@@ -192,23 +284,42 @@ def main(path):
 	testY  = test[:,-1]
 
 
-	modes   = ['RF', 'GBT']
-	methods = ['axis_parallel_cut', 'hyperplane_psvm']
+
+	methods   = ['RF', 'GBT']
+	modes = ['axis_parallel_cut','hyperplane_psvm']
+
+
+	parameters = []
+	#Initialize parameters
+	for n_est in n_estimators:
+		for n_var in nvartosample:
+			for minp in minparent:
+				parameters.append([n_est, n_var, minp])
+	parameters = np.array(parameters)
 
 
 
 
-	for mode in modes:
-		for method in methods:
-			model = grid_search(train, n_estimators=n_estimators, nvartosample=nvartosample, minparent=minparent, mode=mode, method=method)
-			model.train(trainX, trainY)
+	for method in methods:
+		for mode in modes:
+			parameters = PSO(parameters= parameters,mode=mode, method=method,X=data[:, :-1], Y=data[:,-1], )
+			info       = open('pso_optimization.txt', 'a')
+			info.write("Mode: \t\t\t"+ mode+'\n')
+			info.write("Method: \t\t\t "+ method+ '\n')
+			info.write("Best Number of Estimators: \t"+ str(parameters[0])+ '\n')
+			info.write("Best Number of Variables: \t"+ str(parameters[1])+ '\n')
+			info.write("Best Number in Parents: \t"+ str(parameters[2])+'\n')
+			info.close()
 
-			
-			predtrain = model.predict(trainX)
-			predtest  = model.predict(testX)
 
-			print("Training Accuracy: \t", np.sum(predtrain==trainY)/float(len(trainY)))
-			print("Testing Accuracy: \t", np.sum(predtest==testY)/float(len(testY)))
+
+
+	# model = GBT(n_estimators=10, minparent=8, nvartosample=3)
+	# model.train(trainX, trainY)
+	# pred = model.predict(testX)
+	# print("Testing Accuracy: \t", np.sum(pred==testY)/float(len(testY)))
+
+	
 
 
 
